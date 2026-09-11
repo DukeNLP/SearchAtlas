@@ -1,0 +1,13 @@
+[
+  {
+    "task_id": "Example-1",
+    "question": "In what year did the fictional Example Hall open?",
+    "messages": [
+      {"role": "system", "content": "Use the supplied search tools to answer the question."},
+      {"role": "user", "content": "In what year did the fictional Example Hall open?"},
+      {"role": "assistant", "content": "<think>I will look for the hall's opening date.</think>\n<tool_call>{\"name\": \"search\", \"arguments\": {\"query\": [\"Example Hall opening year\"]}}</tool_call>"},
+      {"role": "user", "content": "<tool_response>Search results for query: Example Hall opening year\n1. Example Hall history\nhttps://example.org/hall\nThe fictional Example Hall opened in 1942.</tool_response>"},
+      {"role": "assistant", "content": "<answer>1942.</answer>"}
+    ]
+  }
+]
