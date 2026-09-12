@@ -1,5 +1,8 @@
 # SearchAtlas
 
+Code for [SearchAtlas: Analyzing Agentic Search Strategies via Evidential Query Graphs](https://arxiv.org/abs/2609.10901),
+accepted to **Findings of EMNLP 2026**.
+
 Build evidence-dependency query DAGs and evaluate interpretable search-process diagnostics.
 The package includes a DAG builder, an offline evaluator, examples, and tests.
 
@@ -79,3 +82,20 @@ reports can contain input text and URLs—review generated files before sharing.
 ## License
 
 [Apache-2.0](LICENSE). See [third-party notices](THIRD_PARTY_NOTICES.md) for dependencies.
+
+## Citation
+
+If you use SearchAtlas in your research, please cite our paper:
+
+```bibtex
+@misc{sang2026searchatlas,
+  title         = {{SearchAtlas}: Analyzing Agentic Search Strategies via Evidential Query Graphs},
+  author        = {Sang, Jiacheng and Li, Mengyuan and Chen, Sanxing and Huang, Yukun and Feng, Yu and Dhingra, Bhuwan},
+  year          = {2026},
+  eprint        = {2609.10901},
+  archivePrefix = {arXiv},
+  primaryClass  = {cs.CL},
+  note          = {Accepted to Findings of EMNLP 2026},
+  url           = {https://arxiv.org/abs/2609.10901}
+}
+```

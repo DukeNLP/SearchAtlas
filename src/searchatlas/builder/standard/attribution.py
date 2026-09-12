@@ -6,6 +6,7 @@ from typing import Dict, List, Optional, Tuple, Set, Any
 from collections import defaultdict
 from tqdm import tqdm
 from ..llm_compat import completion_token_budget, record_llm_event
+from ..citations import normalize_provenance_citations
 from . import settings
 
 def call_llm_json(system: str, user: str, max_tokens: int=3500, retries: int=3, call_name: str='call_llm_json') -> Optional[Dict]:
@@ -360,7 +361,15 @@ def phase1_hybrid_classify(question: str, messages: List[Dict], queries: List[Di
                 elif not re.search(f'\\b{re.escape(src)}\\b', evidence_text, re.I):
                     rejection_reason = 'query_edge_evidence_does_not_name_source'
                 elif not (has_sentence_anchor or has_provenance_anchor):
-                    rejection_reason = 'query_edge_missing_sentence_or_provenance_anchor'
+                    normalized = normalize_provenance_citations(evidence_text, src, payload, actual_coverage)
+                    if normalized == evidence_text:
+                        rejection_reason = 'query_edge_missing_sentence_or_provenance_anchor'
+                    else:
+                        e = dict(e, evidence=normalized)
+                        per_turn_raw[-1].setdefault('citation_format_repairs', []).append({
+                            'source': src, 'target': tgt,
+                            'original_evidence': evidence_text, 'normalized_evidence': normalized,
+                        })
                 if rejection_reason:
                     per_turn_raw[-1]['rejected_edges'].append({'source': src, 'target': tgt, 'edge_kind': edge_kind, 'reason': rejection_reason, 'raw_edge': e})
                     continue

@@ -1,5 +1,6 @@
 """Synthetic regression tests for provenance semantics; no external API calls."""
 import contextlib
+from collections import Counter
 import importlib
 import io
 import json
@@ -280,6 +281,38 @@ class GroundingSafetyTests(unittest.TestCase):
             {'role': 'assistant', 'content': '', 'tool_calls': [{'function': {'name': 'search'}}]}]}
         with self.assertRaises(ValueError):
             validate_tasks([task], ['Example'])
+
+    def test_edge_kind_stats_match_final_graph_after_deduplication(self):
+        source = Path(__file__).resolve().parents[1] / 'examples/synthetic_trace.json'
+        constraint = {'source': 'Q0', 'target': 'q1', 'edge_kind': 'constraint_use'}
+        prior = {'source': 'Prior_knowledge', 'target': 'q1', 'edge_kind': 'prior_knowledge_derived'}
+        cases = [([], {}),
+                 ([constraint, prior], {'constraint_use': 1, 'prior_knowledge_derived': 1}),
+                 ([constraint, constraint, constraint, prior, prior],
+                  {'constraint_use': 1, 'prior_knowledge_derived': 1})]
+        for adapter in self.adapters:
+            for edges, expected in cases:
+                with self.subTest(adapter=adapter, input_edges=len(edges)), tempfile.TemporaryDirectory() as tmp:
+                    output = Path(tmp) / 'graph.json'
+                    argv = ['builder', '--input', str(source), '--output', str(output), '--task-ids', 'Example-1']
+                    if adapter == 'miro':
+                        argv += ['--keep-tool-result', '-1']
+                    with contextlib.ExitStack() as stack:
+                        stack.enter_context(patch.object(sys, 'argv', argv))
+                        stack.enter_context(patch.object(self.module(adapter, 'settings'), 'API_KEY', 'offline-test'))
+                        stack.enter_context(patch.object(self.module(adapter, 'constraints'), 'q0_edges_from_tokens_firstuse', return_value=[]))
+                        stack.enter_context(patch.object(self.module(adapter, 'attribution'), 'phase1_hybrid_classify', return_value=(edges, [], [])))
+                        stack.enter_context(patch.object(self.module(adapter, 'answers'), 'extract_final_answer', return_value=''))
+                        stack.enter_context(patch.object(self.module(adapter, 'attribution'), 'call_llm_json', side_effect=AssertionError('Offline test')))
+                        stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+                        stack.enter_context(contextlib.redirect_stderr(io.StringIO()))
+                        self.module(adapter, 'pipeline').main()
+                    result = json.loads(output.read_text())[0]
+                    final_edges = result['graph']['edges']
+                    self.assertEqual(result['stats']['edge_kinds'], expected)
+                    self.assertEqual(result['stats']['edge_kinds'], dict(Counter(e['edge_kind'] for e in final_edges)))
+                    self.assertEqual(sum(result['stats']['edge_kinds'].values()), result['stats']['num_edges'])
+                    self.assertEqual(result['stats']['num_edges'], len(final_edges))
 
     def test_requested_task_must_exist(self):
         with self.assertRaises(ValueError):

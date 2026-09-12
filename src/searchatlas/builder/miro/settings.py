@@ -4,6 +4,7 @@ import json
 import re
 import os
 from ..llm_compat import env_flag, parse_json_object
+from ..citations import CITATION_FORMAT_INSTRUCTIONS
 
 class _LazyClient:
     """Do not require credentials or open a client for offline parsing."""
@@ -505,4 +506,4 @@ OUTPUT (JSON ONLY)
   "no_source_found": ["qY", "..."]
 }
 Return valid JSON only.
-"""
+""" + CITATION_FORMAT_INSTRUCTIONS

@@ -4,7 +4,7 @@ import json
 import argparse
 from pathlib import Path
 from typing import Dict, List, Any
-from collections import defaultdict, Counter
+from collections import Counter
 from ..llm_compat import LLM_IO_COMPAT_VERSION
 from . import settings
 
@@ -149,15 +149,14 @@ def main():
                 all_edges.extend(answer_edges)
         else:
             print('  ⚠ No final answer found — skipping q→A edges')
-        kind_counts = defaultdict(int)
-        for e in all_edges:
-            kind_counts[e.get('edge_kind', '?')] += 1
+        pre_assembly_kind_counts = Counter(e.get('edge_kind', '?') for e in all_edges)
         print(f'\n  Total edges before assembly: {len(all_edges)}')
-        for k, v in sorted(kind_counts.items()):
+        for k, v in sorted(pre_assembly_kind_counts.items()):
             print(f'    {k}: {v}')
         if explicitly_no_source:
             print(f'    no_source_found (orphans expected under contribution-only): {explicitly_no_source}')
         graph = assemble_dag(question, queries, all_edges, answer_text=answer_text, answer_units=answer_units_list)
+        kind_counts = Counter(e.get('edge_kind', '?') for e in graph['edges'])
         issues = validate_dag(graph)
         fatal = [issue for issue in issues if not issue.startswith('ORPHAN:')]
         if fatal:
