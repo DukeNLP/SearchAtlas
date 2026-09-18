@@ -4,7 +4,14 @@ Code for [SearchAtlas: Analyzing Agentic Search Strategies via Evidential Query 
 accepted to **Findings of EMNLP 2026**.
 
 Build evidence-dependency query DAGs and evaluate interpretable search-process diagnostics.
-The package includes a DAG builder, an offline evaluator, examples, and tests.
+The package includes a DAG builder, an offline evaluator, a local MCP server, examples, and tests.
+
+**New: MCP support for Codex and Claude Code.** Turn supported search logs into
+evidence graphs from your coding assistant. Build DAGs, explore query dependencies
+and answer-support paths, and evaluate search-process diagnostics. CLI backends
+use your existing CLI login—no separate API key required; account usage limits apply.
+
+[Get started with MCP](#use-from-an-mcp-client) · [Full MCP guide](docs/mcp.md)
 
 ## Installation
 
@@ -68,13 +75,29 @@ codex mcp add searchatlas -- /absolute/path/to/venv/bin/python -m searchatlas.mc
 claude mcp add --transport stdio searchatlas -- /absolute/path/to/venv/bin/python -m searchatlas.mcp --workspace /absolute/path/to/workspace --backend claude_cli
 ```
 
-Ask the client to analyze a specific trace file and task ID. The server exposes
-`start_analysis`, `get_analysis_status`, `get_analysis_result`, `cancel_analysis`,
-and offline `evaluate_graph`. Construction and evaluation run as background jobs;
-graph details and diagnostics are returned in pages.
+Once connected, ask your assistant to work with a supported trace, for example:
+
+> Analyze `examples/synthetic_trace.json`, task `Example-1`, using the `tydp`
+> adapter. Build its DAG, inspect which queries support the answer, and summarize
+> the topology and prior-knowledge diagnostics.
+
+With SearchAtlas connected, you can:
+
+- **Build DAGs in the background:** start an analysis, check its status, or cancel it.
+- **Explore the evidence structure:** inspect query nodes, dependency edges, and
+  answer-support sets from the conversation.
+- **Evaluate saved graphs offline:** compute diagnostics and, with a supplied
+  reference DAG, edge precision, recall, and F1 without model calls.
+
+The five tools are `start_analysis`, `get_analysis_status`, `get_analysis_result`,
+`cancel_analysis`, and `evaluate_graph`. Graph details and diagnostics are returned
+in pages. The server runs locally; construction sends selected trace evidence to
+the configured model provider.
 
 Constraint grounding needs supplied constraint annotations; without them those
 metrics are undefined. See [MCP setup, annotation inputs, and authentication](docs/mcp.md).
+Codex CLI has passed a live build-and-evaluate check; Claude Code live-provider
+validation is pending.
 
 ## Evaluate DAGs
 
