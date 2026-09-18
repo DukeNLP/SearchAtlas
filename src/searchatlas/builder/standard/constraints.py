@@ -17,6 +17,20 @@ def decompose_q0_units(question: str) -> List[Dict[str, str]]:
     result = call_llm_json(settings.Q0_DECOMPOSE_SYSTEM, prompt, max_tokens=1500, retries=2, call_name='q0_decompose')
     if result and 'units' in result:
         units = result['units']
+        if settings.LLM_BACKEND != 'api':
+            if not isinstance(units, list) or not units:
+                raise ValueError('CLI Q0 decomposition must return nonempty constraint units')
+            ids = []
+            for unit in units:
+                if (not isinstance(unit, dict)
+                        or not isinstance(unit.get('unit_id'), str)
+                        or not unit['unit_id'].strip()
+                        or not isinstance(unit.get('q0_span'), str)
+                        or not unit['q0_span'].strip()):
+                    raise ValueError('CLI Q0 constraint units require nonempty IDs and spans')
+                ids.append(unit['unit_id'].strip())
+            if len(ids) != len(set(ids)):
+                raise ValueError('CLI Q0 constraint unit IDs must be unique')
         valid = []
         for u in units:
             if isinstance(u, dict) and u.get('unit_id') and u.get('q0_span'):
@@ -26,6 +40,8 @@ def decompose_q0_units(question: str) -> List[Dict[str, str]]:
             for u in valid:
                 print(f'''      {u['unit_id']} ({u['unit_type']}): "{u['q0_span']}"''')
             return valid
+    if settings.LLM_BACKEND != 'api':
+        raise ValueError('CLI Q0 decomposition did not return usable constraint units')
     toks = tokenize(question)
     return [{'unit_id': f'u{i + 1}', 'unit_type': 'attribute', 'q0_span': tok} for i, tok in enumerate(toks)]
 
@@ -88,12 +104,19 @@ def _llm_arbiter_q0_matches(question: str, pairs: List[Dict[str, str]]) -> Dict[
         kwargs = dict(model=settings.MODEL, messages=[{'role': 'system', 'content': settings.Q0_MATCH_ARBITER_SYSTEM}, {'role': 'user', 'content': user_prompt}], temperature=settings.LLM_TEMPERATURE, timeout=settings.LLM_TIMEOUT_SEC)
         kwargs.update(_completion_length_kwargs(effective_max_tokens))
         _apply_llm_io_options(kwargs, json_object=False)
-        resp = _create_chat_completion(kwargs)
+        resp = _create_chat_completion(kwargs, call_name='q0_match_arbiter')
         text = resp.choices[0].message.content or ''
         verdicts = _parse_model_json(text, expected=list)
+        if settings.LLM_BACKEND != 'api':
+            pair_ids = [v.get('pair_id') for v in verdicts]
+            expected = {p['pair_id'] for p in pairs}
+            if len(pair_ids) != len(expected) or set(pair_ids) != expected:
+                raise ValueError('CLI Q0 arbiter must return exactly one decision for every requested pair')
         record_llm_event(settings.LLM_USAGE_JSONL, event='success', call_name='q0_match_arbiter', model=settings.MODEL, prompt_chars=len(settings.Q0_MATCH_ARBITER_SYSTEM) + len(user_prompt), max_tokens=effective_max_tokens, attempt=1, response=resp, response_chars=len(text), metadata={'edge_policy': settings.EDGE_POLICY, 'llm_io_mode': settings.LLM_IO_MODE})
         return {v['pair_id']: bool(v.get('match', False)) for v in verdicts}
     except Exception as e:
+        if settings.LLM_BACKEND != 'api':
+            raise
         record_llm_event(settings.LLM_USAGE_JSONL, event='parse_error' if resp is not None else 'request_error', call_name='q0_match_arbiter', model=settings.MODEL, prompt_chars=len(settings.Q0_MATCH_ARBITER_SYSTEM) + len(user_prompt), max_tokens=effective_max_tokens, attempt=1, response=resp, response_chars=len(text), error=_format_llm_exception(e), metadata={'edge_policy': settings.EDGE_POLICY, 'llm_io_mode': settings.LLM_IO_MODE})
         print(f'    ⚠ Q0 arbiter LLM error: {_format_llm_exception(e)}')
     fallback_value = not strict_edge_policy()

@@ -25,6 +25,8 @@ EDGE_POLICY = "strict"
 
 API_KEY = os.getenv("OPENAI_API_KEY", "")
 
+LLM_BACKEND = os.getenv("SEARCHATLAS_LLM_BACKEND", "api")
+
 BASE_URL = os.getenv("OPENAI_BASE_URL", "https://api.openai.com/v1")
 
 MODEL = os.getenv("OPENAI_MODEL", "gpt-5.2")

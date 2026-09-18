@@ -31,7 +31,10 @@ def _response_format_is_unsupported(exc: Exception) -> bool:
     text = str(exc).lower()
     return 'response_format' in text and any((marker in text for marker in ('unsupported', 'unknown', 'invalid', 'not support')))
 
-def _create_chat_completion(kwargs: Dict[str, Any]) -> Any:
+def _create_chat_completion(kwargs: Dict[str, Any], *, call_name: str = '') -> Any:
+    if settings.LLM_BACKEND != 'api':
+        from ..cli_backend import create_cli_completion
+        return create_cli_completion(settings.LLM_BACKEND, kwargs, call_name=call_name)
     try:
         return settings.client.chat.completions.create(**kwargs)
     except Exception as exc:
@@ -43,6 +46,8 @@ def _create_chat_completion(kwargs: Dict[str, Any]) -> Any:
         return settings.client.chat.completions.create(**fallback)
 
 def _is_non_retryable_llm_error(e: Exception) -> bool:
+    if getattr(e, 'non_retryable', False):
+        return True
     status_code = getattr(e, 'status_code', None)
     response = getattr(e, 'response', None)
     response_status = getattr(response, 'status_code', None) if response is not None else None

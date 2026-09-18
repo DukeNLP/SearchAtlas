@@ -10,6 +10,7 @@ dist/
 !.env.example
 *.log
 local-output/
+.searchatlas-mcp/
 decoded/
 data/
 results/

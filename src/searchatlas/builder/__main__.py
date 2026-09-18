@@ -7,6 +7,7 @@ import os
 import sys
 
 from searchatlas import __version__
+from .runtime import BACKENDS, add_backend_arguments, default_model
 
 
 def positive_int(value):
@@ -18,6 +19,7 @@ def positive_int(value):
 
 def build_parser():
     parser = argparse.ArgumentParser(description=__doc__)
+    add_backend_arguments(parser)
     parser.add_argument('--version', action='version', version=__version__)
     parser.add_argument('--agent', required=True,
                         choices=['tydp', 'tydp_gpt5', 'tydp_qwen3', 'websailor', 'mirothinker'],
@@ -45,15 +47,22 @@ def build_parser():
 def main():
     parser = build_parser()
     args = parser.parse_args()
+    if args.backend not in BACKENDS:
+        parser.error('Unknown SEARCHATLAS_LLM_BACKEND')
     if args.keep_tool_result < -1:
         parser.error('--keep-tool-result must be -1 or nonnegative')
     adapter = 'miro' if args.agent == 'mirothinker' else 'standard'
     argv = [
+        '--backend', args.backend,
         '--input', args.input, '--output', args.output,
         '--task-ids', *args.task_ids, '--q0-mode', args.q0_mode,
         '--top-k', str(args.top_k), '--max-snips', str(args.max_snips),
         '--sent-window', str(args.sent_window),
     ]
+    if args.model:
+        argv.extend(['--model', args.model])
+    if args.llm_timeout is not None:
+        argv.extend(['--llm-timeout', str(args.llm_timeout)])
     if adapter == 'miro':
         argv.extend(['--keep-tool-result', str(args.keep_tool_result)])
     if args.debug_report_dir:
@@ -61,10 +70,11 @@ def main():
     if not args.execute:
         print(json.dumps({
             'agent': args.agent, 'adapter': adapter, 'arguments': argv,
-            'model': os.getenv('OPENAI_MODEL', 'gpt-5.2'), 'execute': False,
+            'backend': args.backend, 'model': args.model or default_model(args.backend),
+            'execute': False,
         }, indent=2))
         return
-    if not os.getenv('OPENAI_API_KEY'):
+    if args.backend == 'api' and not os.getenv('OPENAI_API_KEY'):
         parser.error('Set OPENAI_API_KEY before --execute')
     original_argv = sys.argv
     try:

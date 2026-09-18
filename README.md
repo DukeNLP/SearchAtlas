@@ -13,6 +13,7 @@ Python 3.10 or newer is required.
 ```sh
 python -m pip install -e .             # Offline evaluation
 python -m pip install -e '.[builder]' # Also install model API support
+python -m pip install -e '.[mcp]'     # Local MCP server + CLI inference
 ```
 
 ## Build a DAG
@@ -41,6 +42,39 @@ Useful options:
 
 The builder uses spaCy lemmas if `en_core_web_sm` is installed, otherwise built-in
 normalization. Keep this dependency choice fixed when comparing runs.
+
+### Use Codex CLI or Claude Code instead of an API key
+
+With the selected official CLI installed and logged in, choose `--backend codex_cli`
+or `--backend claude_cli`. Both run the same builder and evidence checks:
+
+```sh
+python -m searchatlas.builder --backend codex_cli --agent tydp --input examples/synthetic_trace.json --output local-output/graph.json --task-ids Example-1 --execute
+```
+
+`--model` optionally selects a model supported by that CLI. Otherwise its default
+applies. SearchAtlas launches fresh non-interactive CLI sessions; it does not reuse
+the current chat. Usage counts against the selected CLI account's applicable
+limits and plan. The API backend remains the default and is unchanged.
+
+## Use from an MCP client
+
+After installing `.[mcp]`, register the local server in Codex or Claude Code.
+Replace the paths with your Python environment and the directory containing your
+selected inputs:
+
+```sh
+codex mcp add searchatlas -- /absolute/path/to/venv/bin/python -m searchatlas.mcp --workspace /absolute/path/to/workspace --backend codex_cli
+claude mcp add --transport stdio searchatlas -- /absolute/path/to/venv/bin/python -m searchatlas.mcp --workspace /absolute/path/to/workspace --backend claude_cli
+```
+
+Ask the client to analyze a specific trace file and task ID. The server exposes
+`start_analysis`, `get_analysis_status`, `get_analysis_result`, `cancel_analysis`,
+and offline `evaluate_graph`. Construction and evaluation run as background jobs;
+graph details and diagnostics are returned in pages.
+
+Constraint grounding needs supplied constraint annotations; without them those
+metrics are undefined. See [MCP setup, annotation inputs, and authentication](docs/mcp.md).
 
 ## Evaluate DAGs
 

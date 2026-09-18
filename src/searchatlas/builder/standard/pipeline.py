@@ -6,6 +6,7 @@ from pathlib import Path
 from typing import Dict, List, Any
 from collections import Counter
 from ..llm_compat import LLM_IO_COMPAT_VERSION
+from ..runtime import add_backend_arguments, configure_backend
 from . import settings
 
 def main():
@@ -20,6 +21,7 @@ def main():
     from ..safety import task_report_filename, validate_tasks
     from ..privacy import redact_metadata
     parser = argparse.ArgumentParser(description='Build a trace-supported query DAG from tagged search logs')
+    add_backend_arguments(parser)
     parser.add_argument('--input', '-i', type=str, required=True)
     parser.add_argument('--output', '-o', type=str, default='query_dag_hybrid_output.json')
     parser.add_argument('--debug-report-dir', type=str, default='', help='Write detailed per-task reports to this directory (disabled by default; includes input text).')
@@ -29,8 +31,7 @@ def main():
     parser.add_argument('--sent-window', type=int, default=5, help='Sentence window +/- around token hit')
     parser.add_argument('--q0-mode', type=str, default='rule', choices=['rule', 'llm'], help="Q0 edge mode: 'rule' = token overlap + first-use (deterministic, no LLM); 'llm' = LLM unit decomposition + first-use matching (1 extra API call)")
     args = parser.parse_args()
-    if not settings.API_KEY:
-        raise SystemExit('ERROR: OPENAI_API_KEY is not set. Export it before running.')
+    configure_backend(settings, args)
     print(f'Edge policy: {settings.EDGE_POLICY} ({settings.EDGE_POLICY_VERSION})')
     print(f'LLM I/O: {LLM_IO_COMPAT_VERSION}; mode={settings.LLM_IO_MODE}; json_mode={settings.LLM_JSON_MODE}; temperature={settings.LLM_TEMPERATURE}; min_completion_tokens={settings.LLM_MIN_COMPLETION_TOKENS}')
     print(f'Loading: {args.input}')
@@ -190,6 +191,8 @@ def main():
             write_human_debug_report(debug_report_path, task_id=tid, question=question, queries=queries, turn_to_qids=turn_to_qids, qid_doc=qid_doc, turn_thinks=turn_thinks, result_counts=result_counts, turn_url_owners=turn_url_owners, visit_match_log=visit_match_log, q0_edges=q0_edges, q0_units=q0_units, unit_first_use=unit_first_use, per_turn_raw=per_turn_raw, answer_text=answer_text, answer_support_text=answer_support_text, answer_units=answer_units_list, answer_signals=answer_signals_list, answer_coverage=q_coverage, answer_edges=answer_edges, graph=graph, issues=issues)
             print(f'    Debug report: {debug_report_path}')
         results.append({'task_id': tid, 'question': question, 'answer_text': answer_text, 'graph': graph, 'stats': {'num_queries': len(queries), 'num_turns': max_turn, 'num_edges': len(graph['edges']), 'q0_edges': q0_e, 'q0_units': len(q0_units), 'q0_units_matched': len(unit_first_use), 'prior_edges': pk_e, 'qq_edges': qq_e, 'qa_edges': qa_e, 'soft_fail_edges': sf_e, 'hard_fail_edges': hf_e, 'edge_kinds': dict(kind_counts), 'phase1_no_source': explicitly_no_source, 'answer_units': len(answer_units_list), 'answer_signals': len(answer_signals_list), 'answer_signals_unsupported': unsupported_answer_signals, 'answer_units_unsupported': unsupported_answer_units, 'edge_policy_rejections': dict(edge_rejection_counts), 'issues': issues}, 'q0_units': q0_units, 'unit_first_use': unit_first_use, 'answer_units': answer_units_list, 'answer_signals': answer_signals_list, 'per_turn_raw': per_turn_raw, 'settings': {'top_k': args.top_k, 'max_snips': args.max_snips, 'sent_window': args.sent_window, 'model': settings.MODEL, 'edge_policy': settings.EDGE_POLICY, 'edge_policy_version': settings.EDGE_POLICY_VERSION, 'llm_io_compat_version': LLM_IO_COMPAT_VERSION, 'llm_io_mode': settings.LLM_IO_MODE, 'llm_temperature': settings.LLM_TEMPERATURE, 'llm_json_mode': settings.LLM_JSON_MODE, 'llm_min_completion_tokens': settings.LLM_MIN_COMPLETION_TOKENS, 'llm_extra_body': redact_metadata(settings.LLM_EXTRA_BODY, secrets=(settings.API_KEY,)), 'answer_decompose_base_tokens': settings.ANSWER_DECOMPOSE_BASE_TOKENS, 'answer_decompose_max_tokens': settings.ANSWER_DECOMPOSE_MAX_TOKENS, 'answer_decompose_effective_tokens': _answer_decompose_budget(answer_text_for_units)}})
+    for result in results:
+        result['settings']['backend'] = settings.LLM_BACKEND
     print(f'\nSaving to: {args.output}')
     with open(args.output, 'w', encoding='utf-8') as f:
         json.dump(results, f, indent=2, ensure_ascii=False)

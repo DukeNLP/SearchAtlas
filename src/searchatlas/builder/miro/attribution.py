@@ -20,12 +20,15 @@ def call_llm_json(system: str, user: str, max_tokens: int=3500, retries: int=3, 
             kwargs = dict(model=settings.MODEL, messages=[{'role': 'system', 'content': system}, {'role': 'user', 'content': user}], temperature=settings.LLM_TEMPERATURE, timeout=settings.LLM_TIMEOUT_SEC)
             kwargs.update(_completion_length_kwargs(effective_max_tokens))
             _apply_llm_io_options(kwargs, json_object=True)
-            resp = _create_chat_completion(kwargs)
+            resp = _create_chat_completion(kwargs, call_name=call_name)
             text = resp.choices[0].message.content or ''
             parsed = _parse_model_json(text, expected=dict)
             record_llm_event(settings.LLM_USAGE_JSONL, event='success', call_name=call_name, model=settings.MODEL, prompt_chars=len(system) + len(user), max_tokens=effective_max_tokens, attempt=attempt + 1, response=resp, response_chars=len(text), metadata={'edge_policy': settings.EDGE_POLICY, 'llm_io_mode': settings.LLM_IO_MODE})
             return parsed
         except Exception as e:
+            if settings.LLM_BACKEND != 'api':
+                # A failed CLI call is not an attribution saying "no evidence".
+                raise
             record_llm_event(settings.LLM_USAGE_JSONL, event='parse_error' if resp is not None else 'request_error', call_name=call_name, model=settings.MODEL, prompt_chars=len(system) + len(user), max_tokens=effective_max_tokens, attempt=attempt + 1, response=resp, response_chars=len(text), error=_format_llm_exception(e), metadata={'edge_policy': settings.EDGE_POLICY, 'llm_io_mode': settings.LLM_IO_MODE})
             print(f'    LLM error (attempt {attempt + 1}/{retries}): {_format_llm_exception(e)}')
             if _is_non_retryable_llm_error(e):

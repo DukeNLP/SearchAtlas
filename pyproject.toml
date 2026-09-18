@@ -12,10 +12,12 @@ dependencies = ["tqdm>=4.64"]
 
 [project.optional-dependencies]
 builder = ["openai>=1.0"]
+mcp = ["mcp>=1.12,<2"]
 
 [project.scripts]
 searchatlas-build = "searchatlas.builder.__main__:main"
 searchatlas-evaluate = "searchatlas.evaluation.__main__:main"
+searchatlas-mcp = "searchatlas.mcp.__main__:main"
 
 [tool.setuptools.packages.find]
 where = ["src"]
