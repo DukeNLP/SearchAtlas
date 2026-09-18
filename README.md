@@ -13,6 +13,10 @@ use your existing CLI login—no separate API key required; account usage limits
 
 [Get started with MCP](#use-from-an-mcp-client) · [Full MCP guide](docs/mcp.md)
 
+[![Figure 1: SearchAtlas turns a raw search trajectory into an evidence-dependency DAG through parsing, query attribution, parent pruning, and answer grounding.](assets/figure1.png)](assets/figure1.png)
+
+*Figure 1 from the paper: making query dependencies and answer-supporting evidence explicit. Click the image to view it at full resolution.*
+
 ## Installation
 
 Python 3.10 or newer is required.
